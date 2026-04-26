@@ -67,13 +67,7 @@ export const useMainStore = defineStore('main', {
         else if (type.startsWith('inbox.')) { this.refreshInbox(); this.refreshTasks(); }
         else if (type.startsWith('proposal.')) this.refreshProposals();
         else if (type === 'agent.run') {
-          this.refreshRuns().then(() => {
-            this.agentBusy = false;
-            this.agentLastRun = this.agentRuns[0] ?? null;
-            this.agentStatusVisible = true;
-            clearTimeout(agentDoneTimer);
-            agentDoneTimer = setTimeout(() => { this.agentStatusVisible = false; }, 5000);
-          });
+          this.refreshRuns().then(() => this.setAgentDone());
         }
       });
     },
@@ -88,6 +82,13 @@ export const useMainStore = defineStore('main', {
       clearTimeout(agentDoneTimer);
       this.agentBusy = true;
       this.agentStatusVisible = true;
+    },
+    setAgentDone() {
+      this.agentBusy = false;
+      this.agentLastRun = this.agentRuns[0] ?? null;
+      this.agentStatusVisible = true;
+      clearTimeout(agentDoneTimer);
+      agentDoneTimer = setTimeout(() => { this.agentStatusVisible = false; }, 5000);
     },
     clearAgentStatus() {
       clearTimeout(agentDoneTimer);

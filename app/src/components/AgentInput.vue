@@ -31,6 +31,9 @@ async function send() {
       store.refreshRuns(),
       store.refreshInbox(),
     ]);
+    // HTTP response arrives only after the agent has finished (backend awaits runAgent).
+    // Clear busy state here as a reliable fallback in case the SSE event is delayed.
+    store.setAgentDone();
   } catch (e) {
     store.clearAgentStatus();
     alert(e.message);
