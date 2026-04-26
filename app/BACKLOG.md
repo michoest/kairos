@@ -1,0 +1,9 @@
+- [x] Change prompts to German
+- [x] Main actions at the bottom
+- [x] New task as FAB
+- [x] Action pane more details
+- [x] Fokus View: Space und Kategorie in der Zeile des Titels (Schriftart, Größe und Farbe so lassen)
+- [x] Quick Action sollte nicht "morgen" sein, sondern "einen Tag schieben"
+- [x] AppIcon oben in App zeigen und ganz dezenter Gradient-Hintergrund
+- [x] "TaskCard.vue:50 Unable to preventDefault inside passive event listener invocation."
+- [ ] Push Notifications

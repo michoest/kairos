@@ -1,0 +1,20 @@
+{
+  "name": "kairos",
+  "private": true,
+  "version": "0.0.1",
+  "description": "AI-assisted task manager with context stream",
+  "workspaces": ["api", "app"],
+  "scripts": {
+    "dev": "npm-run-all -p dev:api dev:app",
+    "dev:api": "npm run dev --workspace=api",
+    "dev:app": "npm run dev --workspace=app",
+    "build": "npm run build --workspace=app",
+    "deploy": "npm run build && gh-pages -d app/dist --dotfiles",
+    "test": "npm run test --workspace=api",
+    "test:api": "npm run test --workspace=api"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.2.0",
+    "npm-run-all": "^4.1.5"
+  }
+}
