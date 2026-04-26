@@ -1,7 +1,8 @@
-const BASE = '/api';
+const BASE = (import.meta.env.VITE_API_URL ?? '') + '/api';
 
 async function req(path, opts = {}) {
   const res = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...(opts.headers ?? {}) },
     ...opts,
     body: opts.body && typeof opts.body !== 'string' ? JSON.stringify(opts.body) : opts.body,
@@ -73,7 +74,7 @@ export const api = {
   transcribe: async (blob) => {
     const fd = new FormData();
     fd.append('audio', blob, 'audio.webm');
-    const res = await fetch(`${BASE}/stt`, { method: 'POST', body: fd });
+    const res = await fetch(`${BASE}/stt`, { method: 'POST', credentials: 'include', body: fd });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'STT failed');
     return res.json();
   },
