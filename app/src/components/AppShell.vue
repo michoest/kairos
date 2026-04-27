@@ -15,6 +15,13 @@ import TaskSheet from './TaskSheet.vue';
 
 const store = useMainStore();
 const accountOpen = ref(false);
+const focusHelper = ref(null);
+
+function startNewTask() {
+  // Focus a hidden input synchronously so iOS opens the keyboard before nextTick fires
+  focusHelper.value?.focus();
+  store.startNewTask(store.selectedCategoryId);
+}
 
 const currentScreen = computed(() => ({
   inbox: InboxScreen,
@@ -26,6 +33,8 @@ const currentScreen = computed(() => ({
 
 <template>
   <div class="shell">
+    <!-- Hidden input: iOS needs a synchronous focus call inside user gesture to open keyboard -->
+    <input ref="focusHelper" class="focus-helper" aria-hidden="true" tabindex="-1" readonly />
     <TopBar @open-account="accountOpen = true" />
     <ProposalBanner />
     <main class="shell-main">
@@ -38,7 +47,7 @@ const currentScreen = computed(() => ({
     <button
       v-if="store.tab === 'tasks' && store.selectedCategoryId"
       class="fab"
-      @click="store.startNewTask(store.selectedCategoryId)"
+      @click="startNewTask"
       title="Neue Aufgabe"
     >
       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -89,6 +98,18 @@ const currentScreen = computed(() => ({
 }
 .fab:hover { opacity: 0.92; }
 .fab:active { transform: scale(0.95); }
+
+.focus-helper {
+  position: fixed;
+  left: -999px;
+  top: -999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  padding: 0;
+}
 
 @media (min-width: 720px) {
   .fab { bottom: calc(88px + var(--s-3)); }

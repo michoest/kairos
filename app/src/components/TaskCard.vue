@@ -160,15 +160,17 @@ function unitLabel(u, n) {
 }
 function fmtDate(dateStr) {
   if (!dateStr) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  const now = new Date();
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     const [y, m, d] = dateStr.split('-').map(Number);
-    const now = new Date();
     if (y === now.getFullYear() && m === now.getMonth() + 1 && d === now.getDate()) return 'Heute';
-    return `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.`;
+    return `${pad(d)}.${pad(m)}.`;
   }
-  // Fallback for datetime strings (follow_up_at)
+  // ISO datetime: show local date + time
   const d = new Date(dateStr);
-  const pad = (n) => String(n).padStart(2, '0');
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}. ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 </script>

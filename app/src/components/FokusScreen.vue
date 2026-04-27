@@ -27,30 +27,30 @@ const inactiveTasks = computed(() =>
   store.tasks.filter((t) => !t.is_active && t.status !== 'done' && t.status !== 'cancelled')
 );
 
-function todayStr() {
-  const d = new Date();
+function localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-function dateOffsetStr(n) {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-function parseDateStr(str) {
-  const [y, m, d] = str.split('-').map(Number);
-  return new Date(y, m - 1, d);
+function todayStr() { return localDateStr(new Date()); }
+function dateOffsetStr(n) { const d = new Date(); d.setDate(d.getDate() + n); return localDateStr(d); }
+function parseDateStr(str) { const [y, m, d] = str.split('-').map(Number); return new Date(y, m - 1, d); }
+
+// Normalize both YYYY-MM-DD and full ISO datetimes to a local date string for comparison
+function deadlineDatePart(deadline) {
+  if (!deadline) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(deadline)) return deadline;
+  return localDateStr(new Date(deadline)); // parse ISO datetime to local date
 }
 
 const overdue = computed(() => {
   const t = todayStr();
   return activeTasks.value
-    .filter((task) => task.deadline && task.deadline < t)
-    .sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
+    .filter((task) => task.deadline && deadlineDatePart(task.deadline) < t)
+    .sort((a, b) => (deadlineDatePart(a.deadline) < deadlineDatePart(b.deadline) ? -1 : 1));
 });
 
 const today = computed(() => {
   const t = todayStr();
-  return activeTasks.value.filter((task) => task.deadline && task.deadline === t);
+  return activeTasks.value.filter((task) => task.deadline && deadlineDatePart(task.deadline) === t);
 });
 
 const noDeadline = computed(() => activeTasks.value.filter((t) => !t.deadline));
@@ -58,23 +58,26 @@ const noDeadline = computed(() => activeTasks.value.filter((t) => !t.deadline));
 const upcomingDays = computed(() => {
   const t = todayStr();
   const cutoff = dateOffsetStr(7);
-  const tasks = activeTasks.value.filter((task) => task.deadline && task.deadline > t && task.deadline <= cutoff);
+  const tasks = activeTasks.value.filter((task) => {
+    const dp = deadlineDatePart(task.deadline);
+    return dp && dp > t && dp <= cutoff;
+  });
   const groups = {};
   for (const task of tasks) {
-    const key = task.deadline;
+    const key = deadlineDatePart(task.deadline);
     if (!groups[key]) groups[key] = { dateStr: key, date: parseDateStr(key), tasks: [] };
     groups[key].tasks.push(task);
   }
   return Object.values(groups)
     .sort((a, b) => (a.dateStr < b.dateStr ? -1 : 1))
-    .map((g) => ({ ...g, tasks: g.tasks.sort((a, b) => (a.deadline < b.deadline ? -1 : 1)) }));
+    .map((g) => ({ ...g, tasks: g.tasks.sort((a, b) => (deadlineDatePart(a.deadline) < deadlineDatePart(b.deadline) ? -1 : 1)) }));
 });
 
 const later = computed(() => {
   const cutoff = dateOffsetStr(7);
   return activeTasks.value
-    .filter((t) => t.deadline && t.deadline > cutoff)
-    .sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
+    .filter((t) => t.deadline && deadlineDatePart(t.deadline) > cutoff)
+    .sort((a, b) => (deadlineDatePart(a.deadline) < deadlineDatePart(b.deadline) ? -1 : 1));
 });
 
 const isEmpty = computed(() =>

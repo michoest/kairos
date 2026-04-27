@@ -17,6 +17,7 @@ function close() {
 
 const form = ref({});
 const titleRef = ref(null);
+const showDeadlineTime = ref(false);
 const metadataText = ref('');
 const fullDetail = ref(null);
 const recType = ref('none');
@@ -44,13 +45,42 @@ const STATUS_OPTIONS = [
   { value: 'cancelled',   label: 'Verworfen' },
 ];
 
-// deadline: date-only YYYY-MM-DD
-function toDateInput(iso) { return iso?.slice(0, 10) ?? ''; }
+const pad = (n) => String(n).padStart(2, '0');
+
+function loadDeadline(deadline) {
+  if (!deadline) {
+    form.value.deadline = '';
+    form.value.deadlineTime = '';
+    showDeadlineTime.value = false;
+    return;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(deadline)) {
+    form.value.deadline = deadline;
+    form.value.deadlineTime = '';
+    showDeadlineTime.value = false;
+  } else {
+    // ISO datetime → split into local date + time parts
+    const d = new Date(deadline);
+    form.value.deadline = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    form.value.deadlineTime = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    showDeadlineTime.value = true;
+  }
+}
+
+function saveDeadline() {
+  if (!form.value.deadline) return null;
+  if (showDeadlineTime.value && form.value.deadlineTime) {
+    const [y, m, d] = form.value.deadline.split('-').map(Number);
+    const [h, min] = form.value.deadlineTime.split(':').map(Number);
+    return new Date(y, m - 1, d, h, min).toISOString();
+  }
+  return form.value.deadline; // date-only string
+}
+
 // follow_up_at: full datetime
 function toDatetimeInput(iso) {
   if (!iso) return '';
   const d = new Date(iso);
-  const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function fromDatetimeInput(val) { return val ? new Date(val).toISOString() : null; }
@@ -81,10 +111,12 @@ watch([task, isCreating], async ([t, creating]) => {
       status: 'open',
       responsible: '',
       deadline: '',
+      deadlineTime: '',
       follow_up_at: '',
       category_id: store.newTaskCategoryId,
       is_active: true,
     };
+    showDeadlineTime.value = false;
     nextTick(() => titleRef.value?.focus());
     metadataText.value = '';
     loadRecurrence(null);
@@ -97,11 +129,13 @@ watch([task, isCreating], async ([t, creating]) => {
     description: t.description ?? '',
     status: t.status,
     responsible: t.responsible ?? '',
-    deadline: toDateInput(t.deadline),
+    deadline: '',
+    deadlineTime: '',
     follow_up_at: toDatetimeInput(t.follow_up_at),
     category_id: t.category_id,
     is_active: t.is_active !== false,
   };
+  loadDeadline(t.deadline);
   nextTick(() => titleRef.value?.focus());
   metadataText.value = t.metadata ? JSON.stringify(t.metadata, null, 2) : '';
   loadRecurrence(t.recurrence);
@@ -116,7 +150,7 @@ async function save() {
 
   const payload = {
     ...form.value,
-    deadline: form.value.deadline || null,
+    deadline: saveDeadline(),
     follow_up_at: fromDatetimeInput(form.value.follow_up_at),
     metadata,
     recurrence: buildRecurrence(),
@@ -188,10 +222,23 @@ async function removeBlocker(depId) {
                   <option v-for="o in STATUS_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                 </select>
               </label>
-              <label class="field" style="flex: 1;">
+              <div class="field" style="flex: 1;">
                 <span>Deadline</span>
-                <input type="date" v-model="form.deadline" />
-              </label>
+                <div class="deadline-row">
+                  <input type="date" v-model="form.deadline" style="flex: 1;" />
+                  <button
+                    v-if="!showDeadlineTime"
+                    class="ghost time-add-btn"
+                    type="button"
+                    @click="showDeadlineTime = true"
+                    tabindex="-1"
+                  >+ Zeit</button>
+                  <template v-else>
+                    <input type="time" v-model="form.deadlineTime" class="time-input" />
+                    <button class="ghost time-add-btn" type="button" @click="showDeadlineTime = false; form.deadlineTime = ''" tabindex="-1">✕</button>
+                  </template>
+                </div>
+              </div>
             </div>
 
             <label class="field">
@@ -382,6 +429,9 @@ async function removeBlocker(depId) {
 }
 
 .field { display: flex; flex-direction: column; gap: 4px; }
+.deadline-row { display: flex; gap: var(--s-1); align-items: center; }
+.time-input { width: 90px; flex: 0 0 auto; }
+.time-add-btn { min-height: 32px; padding: 0 8px; font-size: var(--fz-xs); flex: 0 0 auto; }
 .field > span {
   font-size: var(--fz-xs);
   color: var(--muted);
