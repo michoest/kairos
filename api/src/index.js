@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import OpenAI from 'openai';
+import webpush from 'web-push';
 import { createDatabase } from './db.js';
 import { createRepo } from './repo.js';
 import { createAgent } from './agent/index.js';
@@ -13,6 +14,14 @@ const MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o';
 const STT_MODEL = process.env.OPENAI_STT_MODEL ?? 'whisper-1';
 const MAX_ITER = parseInt(process.env.AGENT_MAX_ITERATIONS ?? '5', 10);
 const DEADLINE_INTERVAL = parseInt(process.env.DEADLINE_POLL_INTERVAL_MS ?? '60000', 10);
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY ?? null;
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY ?? null;
+
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  webpush.setVapidDetails('mailto:michael.oesterle@bridge-brain.ai', VAPID_PUBLIC, VAPID_PRIVATE);
+} else {
+  console.warn('[kairos] VAPID keys not set — push notifications are disabled.');
+}
 
 const db = createDatabase(DB_PATH);
 const repo = createRepo(db);
@@ -38,7 +47,12 @@ const app = createApp({
   corsOrigin: CORS_ORIGIN,
 });
 
-const scheduler = startDeadlineScheduler({ repo, runAgent: agent.runAgent, intervalMs: DEADLINE_INTERVAL });
+const scheduler = startDeadlineScheduler({
+  repo,
+  runAgent: agent.runAgent,
+  intervalMs: DEADLINE_INTERVAL,
+  webpush: (VAPID_PUBLIC && VAPID_PRIVATE) ? webpush : null,
+});
 
 const server = app.listen(PORT, () => {
   console.log(`[kairos] api listening on http://localhost:${PORT}`);

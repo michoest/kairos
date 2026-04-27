@@ -9,6 +9,7 @@ import { sseRouter } from './routes/sse.js';
 import { sttRouter } from './routes/stt.js';
 import { inboxRouter } from './routes/inbox.js';
 import { proposalsRouter } from './routes/proposals.js';
+import { pushRouter } from './routes/push.js';
 
 export function createApp({ repo, runAgent, executeProposal, openaiClient, sttModel, corsOrigin }) {
   const app = express();
@@ -27,6 +28,7 @@ export function createApp({ repo, runAgent, executeProposal, openaiClient, sttMo
   app.use('/api/proposals', proposalsRouter({ repo, executeProposal: executeProposal ?? (async () => []) }));
   app.use('/api/events', sseRouter());
   app.use('/api/stt', sttRouter({ openaiClient, model: sttModel }));
+  app.use('/api/push', pushRouter({ repo }));
 
   return app;
 }

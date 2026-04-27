@@ -108,25 +108,27 @@ function openReschedule(e) {
   rescheduleOpen.value = true;
 }
 
+function toDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 async function reschedule(type) {
-  const d = new Date();
-  if (type === 'tonight') {
-    d.setHours(18, 0, 0, 0);
-  } else if (type === 'tomorrow') {
-    d.setDate(d.getDate() + 1);
-    d.setHours(9, 0, 0, 0);
-  } else if (type === 'nextweek') {
-    const day = d.getDay();
-    const daysToMon = day === 0 ? 1 : 8 - day;
-    d.setDate(d.getDate() + daysToMon);
-    d.setHours(9, 0, 0, 0);
-  } else if (type === 'none') {
+  if (type === 'none') {
     await api.updateTask(props.task.id, { deadline: null });
     await store.refreshTasks();
     resetSnap();
     return;
   }
-  await api.updateTask(props.task.id, { deadline: d.toISOString() });
+  const d = new Date();
+  if (type === 'today') {
+    // already today
+  } else if (type === 'tomorrow') {
+    d.setDate(d.getDate() + 1);
+  } else if (type === 'nextweek') {
+    const day = d.getDay();
+    d.setDate(d.getDate() + (day === 0 ? 1 : 8 - day));
+  }
+  await api.updateTask(props.task.id, { deadline: toDateStr(d) });
   await store.refreshTasks();
   resetSnap();
 }
@@ -156,13 +158,18 @@ function unitLabel(u, n) {
   const plural = n > 1;
   return ({ day: plural ? 'Tage' : 'Tag', week: plural ? 'Wochen' : 'Woche', month: plural ? 'Monate' : 'Monat' }[u] || u);
 }
-function fmtDate(iso) {
-  const d = new Date(iso);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
+function fmtDate(dateStr) {
+  if (!dateStr) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const now = new Date();
+    if (y === now.getFullYear() && m === now.getMonth() + 1 && d === now.getDate()) return 'Heute';
+    return `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.`;
+  }
+  // Fallback for datetime strings (follow_up_at)
+  const d = new Date(dateStr);
   const pad = (n) => String(n).padStart(2, '0');
-  if (sameDay) return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  return `${pad(d.getDate())}.${pad(d.getMonth()+1)}. ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}. ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 </script>
 
@@ -218,17 +225,15 @@ function fmtDate(iso) {
     >
       <!-- Reschedule overlay -->
       <div v-if="rescheduleOpen" class="reschedule-overlay" @click.stop>
-        <button class="rdate-btn" @click.stop="reschedule('tonight')">
-          <span class="rdate-label">Heute Abend</span>
-          <span class="rdate-time">18:00</span>
+        <button class="rdate-btn" @click.stop="reschedule('today')">
+          <span class="rdate-label">Heute</span>
         </button>
         <button class="rdate-btn" @click.stop="reschedule('tomorrow')">
           <span class="rdate-label">Morgen</span>
-          <span class="rdate-time">09:00</span>
         </button>
         <button class="rdate-btn" @click.stop="reschedule('nextweek')">
           <span class="rdate-label">Nächste Woche</span>
-          <span class="rdate-time">Mo 09:00</span>
+          <span class="rdate-time">Montag</span>
         </button>
         <button class="rdate-btn rdate-none" @click.stop="reschedule('none')">
           <span class="rdate-label">Kein Datum</span>

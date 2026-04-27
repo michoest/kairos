@@ -6,4 +6,10 @@
 - [x] Quick Action sollte nicht "morgen" sein, sondern "einen Tag schieben"
 - [x] AppIcon oben in App zeigen und ganz dezenter Gradient-Hintergrund
 - [x] "TaskCard.vue:50 Unable to preventDefault inside passive event listener invocation."
-- [ ] Push Notifications
+- [ ] Push Notifications mit Scheduler
+- [ ] Siri-Shortcut (welcher Endpunkt?)
+- [ ] Aufgaben beim Agenten-Einfügen sinnvoll umformulieren
+- [ ] Autofokus auf Felder
+- [ ] Keine Uhrzeit als Standard-Option
+- [ ] Uhrzeiten-Fehler mit Zeitzonen
+- [ ] 

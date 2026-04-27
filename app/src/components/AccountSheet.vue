@@ -1,9 +1,42 @@
 <script setup>
+import { ref } from 'vue';
 import { useMainStore } from '../stores/main.js';
+import { api } from '../api.js';
 
 defineProps({ open: Boolean });
 defineEmits(['close']);
 const store = useMainStore();
+
+const pushSupported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
+const pushStatus = ref('unknown'); // 'unknown' | 'subscribed' | 'denied'
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return new Uint8Array([...raw].map((c) => c.charCodeAt(0)));
+}
+
+async function enablePush() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      pushStatus.value = 'denied';
+      return;
+    }
+    const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!vapidKey) throw new Error('VITE_VAPID_PUBLIC_KEY not configured');
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    });
+    await api.savePushSubscription(sub.toJSON());
+    pushStatus.value = 'subscribed';
+  } catch (e) {
+    alert('Push: ' + e.message);
+  }
+}
 </script>
 
 <template>
@@ -29,6 +62,17 @@ const store = useMainStore();
                 @click="store.setTheme('dark')"
               >☾ Dunkel</button>
             </div>
+          </section>
+
+          <section class="sheet-section" v-if="pushSupported">
+            <div class="label">Push-Benachrichtigungen</div>
+            <div v-if="pushStatus === 'subscribed'" class="push-status ok">
+              Aktiviert — täglich um 9:00 Uhr
+            </div>
+            <div v-else-if="pushStatus === 'denied'" class="push-status denied">
+              Zugriff verweigert — bitte in den Browser-Einstellungen erlauben
+            </div>
+            <button v-else @click="enablePush" class="push-btn">Push aktivieren</button>
           </section>
 
           <section class="sheet-section">
@@ -101,6 +145,10 @@ const store = useMainStore();
   border-color: var(--accent);
 }
 .placeholder { color: var(--muted); font-size: var(--fz-sm); line-height: 1.5; }
+.push-btn { width: 100%; }
+.push-status { font-size: var(--fz-sm); }
+.push-status.ok { color: var(--ok); }
+.push-status.denied { color: var(--danger); }
 
 @media (min-width: 720px) {
   .sheet-backdrop { align-items: center; }

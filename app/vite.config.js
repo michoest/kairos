@@ -10,9 +10,11 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: 'auto',
       manifest: false,        // use public/manifest.webmanifest directly
-      workbox: {
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
-        cleanupOutdatedCaches: true,
       },
     }),
   ],

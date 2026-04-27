@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, nextTick } from 'vue';
 import { useMainStore } from '../stores/main.js';
 import { api } from '../api.js';
 import { statusLabel } from '../utils/labels.js';
@@ -16,6 +16,7 @@ function close() {
 }
 
 const form = ref({});
+const titleRef = ref(null);
 const metadataText = ref('');
 const fullDetail = ref(null);
 const recType = ref('none');
@@ -43,13 +44,16 @@ const STATUS_OPTIONS = [
   { value: 'cancelled',   label: 'Verworfen' },
 ];
 
-function toInput(iso) {
+// deadline: date-only YYYY-MM-DD
+function toDateInput(iso) { return iso?.slice(0, 10) ?? ''; }
+// follow_up_at: full datetime
+function toDatetimeInput(iso) {
   if (!iso) return '';
   const d = new Date(iso);
   const pad = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-function fromInput(val) { return val ? new Date(val).toISOString() : null; }
+function fromDatetimeInput(val) { return val ? new Date(val).toISOString() : null; }
 
 function loadRecurrence(r) {
   if (!r) { recType.value = 'none'; recWeekdays.value = []; return; }
@@ -81,6 +85,7 @@ watch([task, isCreating], async ([t, creating]) => {
       category_id: store.newTaskCategoryId,
       is_active: true,
     };
+    nextTick(() => titleRef.value?.focus());
     metadataText.value = '';
     loadRecurrence(null);
     fullDetail.value = null;
@@ -92,11 +97,12 @@ watch([task, isCreating], async ([t, creating]) => {
     description: t.description ?? '',
     status: t.status,
     responsible: t.responsible ?? '',
-    deadline: toInput(t.deadline),
-    follow_up_at: toInput(t.follow_up_at),
+    deadline: toDateInput(t.deadline),
+    follow_up_at: toDatetimeInput(t.follow_up_at),
     category_id: t.category_id,
     is_active: t.is_active !== false,
   };
+  nextTick(() => titleRef.value?.focus());
   metadataText.value = t.metadata ? JSON.stringify(t.metadata, null, 2) : '';
   loadRecurrence(t.recurrence);
   showAdvanced.value = false;  // collapsed for existing tasks
@@ -110,8 +116,8 @@ async function save() {
 
   const payload = {
     ...form.value,
-    deadline: fromInput(form.value.deadline),
-    follow_up_at: fromInput(form.value.follow_up_at),
+    deadline: form.value.deadline || null,
+    follow_up_at: fromDatetimeInput(form.value.follow_up_at),
     metadata,
     recurrence: buildRecurrence(),
   };
@@ -165,7 +171,7 @@ async function removeBlocker(depId) {
         <div class="sheet">
           <div class="sheet-handle"></div>
           <div class="sheet-head">
-            <input class="title-input" v-model="form.title" placeholder="Titel" autofocus />
+            <input ref="titleRef" class="title-input" v-model="form.title" placeholder="Titel" />
             <button class="ghost icon" @click="close" title="Schließen">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
@@ -184,7 +190,7 @@ async function removeBlocker(depId) {
               </label>
               <label class="field" style="flex: 1;">
                 <span>Deadline</span>
-                <input type="datetime-local" v-model="form.deadline" />
+                <input type="date" v-model="form.deadline" />
               </label>
             </div>
 
@@ -225,6 +231,7 @@ async function removeBlocker(depId) {
                 <span>Nachhaken am</span>
                 <input type="datetime-local" v-model="form.follow_up_at" />
               </label>
+
 
               <label class="check-row">
                 <input type="checkbox" v-model="form.is_active" />

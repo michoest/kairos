@@ -104,6 +104,13 @@ CREATE TABLE IF NOT EXISTS agent_proposals (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   resolved_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint TEXT PRIMARY KEY,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `;
 
 const INDEXES_SCHEMA = `

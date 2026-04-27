@@ -17,9 +17,7 @@ const expanded = ref({
 const upcomingExpanded = ref({});
 
 function toggle(key) { expanded.value[key] = !expanded.value[key]; }
-function toggleDay(key) {
-  upcomingExpanded.value[key] = !(upcomingExpanded.value[key] ?? true);
-}
+function toggleDay(key) { upcomingExpanded.value[key] = !(upcomingExpanded.value[key] ?? true); }
 function isDayOpen(key) { return upcomingExpanded.value[key] ?? true; }
 
 const activeTasks = computed(() =>
@@ -29,58 +27,60 @@ const inactiveTasks = computed(() =>
   store.tasks.filter((t) => !t.is_active && t.status !== 'done' && t.status !== 'cancelled')
 );
 
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function dateOffsetStr(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function parseDateStr(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
 const overdue = computed(() => {
-  const todayStart = startOfDay(new Date());
+  const t = todayStr();
   return activeTasks.value
-    .filter((t) => t.deadline && new Date(t.deadline) < todayStart)
-    .sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+    .filter((task) => task.deadline && task.deadline < t)
+    .sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
 });
 
 const today = computed(() => {
-  const s = startOfDay(new Date());
-  const e = endOfDay(new Date());
-  return activeTasks.value
-    .filter((t) => t.deadline && new Date(t.deadline) >= s && new Date(t.deadline) <= e)
-    .sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+  const t = todayStr();
+  return activeTasks.value.filter((task) => task.deadline && task.deadline === t);
 });
 
 const noDeadline = computed(() => activeTasks.value.filter((t) => !t.deadline));
 
 const upcomingDays = computed(() => {
-  const s = endOfDay(new Date());
-  const e = endOfDay(daysFromNow(7));
-  const tasks = activeTasks.value.filter((t) => {
-    if (!t.deadline) return false;
-    const d = new Date(t.deadline);
-    return d > s && d <= e;
-  });
+  const t = todayStr();
+  const cutoff = dateOffsetStr(7);
+  const tasks = activeTasks.value.filter((task) => task.deadline && task.deadline > t && task.deadline <= cutoff);
   const groups = {};
-  for (const t of tasks) {
-    const d = new Date(t.deadline);
-    const key = startOfDay(d).toISOString();
-    if (!groups[key]) groups[key] = { date: startOfDay(d), tasks: [] };
-    groups[key].tasks.push(t);
+  for (const task of tasks) {
+    const key = task.deadline;
+    if (!groups[key]) groups[key] = { dateStr: key, date: parseDateStr(key), tasks: [] };
+    groups[key].tasks.push(task);
   }
   return Object.values(groups)
-    .sort((a, b) => a.date - b.date)
-    .map((g) => ({ ...g, tasks: g.tasks.sort((a, b) => new Date(a.deadline) - new Date(b.deadline)) }));
+    .sort((a, b) => (a.dateStr < b.dateStr ? -1 : 1))
+    .map((g) => ({ ...g, tasks: g.tasks.sort((a, b) => (a.deadline < b.deadline ? -1 : 1)) }));
 });
 
 const later = computed(() => {
-  const cutoff = endOfDay(daysFromNow(7));
+  const cutoff = dateOffsetStr(7);
   return activeTasks.value
-    .filter((t) => t.deadline && new Date(t.deadline) > cutoff)
-    .sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+    .filter((t) => t.deadline && t.deadline > cutoff)
+    .sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
 });
 
 const isEmpty = computed(() =>
   !overdue.value.length && !today.value.length && !noDeadline.value.length &&
   !upcomingDays.value.length && !later.value.length && !inactiveTasks.value.length
 );
-
-function startOfDay(d) { const r = new Date(d); r.setHours(0, 0, 0, 0); return r; }
-function endOfDay(d) { const r = new Date(d); r.setHours(23, 59, 59, 999); return r; }
-function daysFromNow(n) { const d = new Date(); d.setDate(d.getDate() + n); return d; }
 
 const DAY_NAMES = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
@@ -148,15 +148,15 @@ function openTask(task) { store.selectedTaskId = task.id; }
       </section>
 
       <!-- Nächste Tage (day-by-day, each collapsible) -->
-      <section v-for="day in upcomingDays" :key="day.date.toISOString()" class="group">
-        <button class="group-header toggle" @click="toggleDay(day.date.toISOString())">
-          <svg class="chevron" :class="{ open: isDayOpen(day.date.toISOString()) }" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <section v-for="day in upcomingDays" :key="day.dateStr" class="group">
+        <button class="group-header toggle" @click="toggleDay(day.dateStr)">
+          <svg class="chevron" :class="{ open: isDayOpen(day.dateStr) }" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M8.59 16.58L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.42z"/>
           </svg>
           <span class="group-title">{{ fmtDayHeader(day.date) }}</span>
           <span class="group-badge">{{ day.tasks.length }}</span>
         </button>
-        <template v-if="isDayOpen(day.date.toISOString())">
+        <template v-if="isDayOpen(day.dateStr)">
           <TaskCard v-for="t in day.tasks" :key="t.id" :task="t" :context="contextFor(t)" @open="openTask" />
         </template>
       </section>

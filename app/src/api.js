@@ -70,6 +70,10 @@ export const api = {
   dismissMessage: (id) => req(`/messages/${id}/dismiss`, { method: 'POST' }),
   listRuns: () => req('/messages/runs'),
 
+  // Push subscriptions
+  savePushSubscription: (sub) => req('/push/subscribe', { method: 'POST', body: sub }),
+  deletePushSubscription: (endpoint) => req('/push/subscribe', { method: 'DELETE', body: { endpoint } }),
+
   // STT
   transcribe: async (blob) => {
     const fd = new FormData();

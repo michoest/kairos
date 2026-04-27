@@ -327,6 +327,19 @@ export function createRepo(db) {
       db.prepare(`UPDATE agent_proposals SET status = ?, results = ?, resolved_at = ? WHERE id = ?`)
         .run(status, results ? JSON.stringify(results) : null, now(), id);
     },
+
+    // --- Push subscriptions ---
+    savePushSubscription: ({ endpoint, p256dh, auth }) => {
+      db.prepare('INSERT OR REPLACE INTO push_subscriptions (endpoint, p256dh, auth) VALUES (?, ?, ?)')
+        .run(endpoint, p256dh, auth);
+    },
+    listPushSubscriptions: () =>
+      db.prepare('SELECT * FROM push_subscriptions').all().map((row) => ({
+        endpoint: row.endpoint,
+        subscription: { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
+      })),
+    deletePushSubscription: (endpoint) =>
+      db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(endpoint),
   };
 }
 
