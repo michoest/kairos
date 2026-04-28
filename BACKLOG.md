@@ -8,8 +8,8 @@
 - [x] "TaskCard.vue:50 Unable to preventDefault inside passive event listener invocation."
 - [ ] Push Notifications mit Scheduler
 - [ ] Siri-Shortcut (welcher Endpunkt?)
-- [ ] Aufgaben beim Agenten-Einfügen sinnvoll umformulieren
+- [x] Aufgaben beim Agenten-Einfügen sinnvoll umformulieren
 - [ ] Autofokus auf Felder
-- [ ] Keine Uhrzeit als Standard-Option
-- [ ] Uhrzeiten-Fehler mit Zeitzonen
+- [x] Keine Uhrzeit als Standard-Option
+- [x] Uhrzeiten-Fehler mit Zeitzonen
 - [ ] 
