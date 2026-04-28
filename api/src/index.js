@@ -45,6 +45,8 @@ const app = createApp({
   openaiClient,
   sttModel: STT_MODEL,
   corsOrigin: CORS_ORIGIN,
+  webpush: (VAPID_PUBLIC && VAPID_PRIVATE) ? webpush : null,
+  vapidPublicKey: VAPID_PUBLIC,
 });
 
 const scheduler = startDeadlineScheduler({

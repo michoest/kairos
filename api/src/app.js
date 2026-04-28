@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { spacesRouter } from './routes/spaces.js';
 import { categoriesRouter } from './routes/categories.js';
 import { tasksRouter } from './routes/tasks.js';
@@ -11,10 +13,14 @@ import { inboxRouter } from './routes/inbox.js';
 import { proposalsRouter } from './routes/proposals.js';
 import { pushRouter } from './routes/push.js';
 
-export function createApp({ repo, runAgent, executeProposal, openaiClient, sttModel, corsOrigin }) {
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+export function createApp({ repo, runAgent, executeProposal, openaiClient, sttModel, corsOrigin, webpush = null, vapidPublicKey = null }) {
   const app = express();
   app.use(cors({ origin: corsOrigin ?? true, credentials: true }));
   app.use(express.json({ limit: '2mb' }));
+
+  app.use(express.static(join(__dirname, '../public')));
 
   app.get('/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
@@ -28,7 +34,7 @@ export function createApp({ repo, runAgent, executeProposal, openaiClient, sttMo
   app.use('/api/proposals', proposalsRouter({ repo, executeProposal: executeProposal ?? (async () => []) }));
   app.use('/api/events', sseRouter());
   app.use('/api/stt', sttRouter({ openaiClient, model: sttModel }));
-  app.use('/api/push', pushRouter({ repo }));
+  app.use('/api/push', pushRouter({ repo, webpush, vapidPublicKey }));
 
   return app;
 }

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kairos Push Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f0f0f; color: #e5e5e5; padding: 24px; max-width: 480px; margin: 0 auto; }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { font-size: 13px; color: #888; margin-bottom: 24px; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .card h2 { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
+    .status { display: flex; align-items: flex-start; gap: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; margin-top: 5px; flex-shrink: 0; }
+    .dot.ok { background: #22c55e; }
+    .dot.warn { background: #f59e0b; }
+    .dot.err { background: #ef4444; }
+    #status-text { font-size: 14px; line-height: 1.5; }
+    button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    #subscribe-btn { background: #3b82f6; color: #fff; margin-bottom: 10px; }
+    #notify-btn { background: #22c55e; color: #fff; }
+    label { display: block; font-size: 13px; color: #aaa; margin-bottom: 4px; margin-top: 12px; }
+    input, textarea { width: 100%; background: #111; border: 1px solid #333; border-radius: 6px; color: #e5e5e5; font-size: 14px; padding: 8px 10px; }
+    textarea { resize: vertical; min-height: 60px; }
+    .log { font-size: 12px; font-family: monospace; color: #666; margin-top: 16px; white-space: pre-wrap; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>Kairos Push Test</h1>
+  <p class="subtitle">Standalone-Testseite für Web Push Notifications</p>
+
+  <div class="card">
+    <h2>Status</h2>
+    <div class="status">
+      <div class="dot" id="dot"></div>
+      <div id="status-text">Initialisiere...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Schritt 1 – Abonnieren</h2>
+    <button id="subscribe-btn" disabled>Push abonnieren</button>
+  </div>
+
+  <div class="card">
+    <h2>Schritt 2 – Test senden</h2>
+    <label for="title-input">Titel</label>
+    <input id="title-input" type="text" value="Kairos Test">
+    <label for="body-input">Text</label>
+    <textarea id="body-input">Push-Benachrichtigungen funktionieren!</textarea>
+    <button id="notify-btn" style="margin-top:12px" disabled>Test-Notification senden</button>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <script>
+    const dot = document.getElementById('dot');
+    const statusText = document.getElementById('status-text');
+    const subscribeBtn = document.getElementById('subscribe-btn');
+    const notifyBtn = document.getElementById('notify-btn');
+    const logEl = document.getElementById('log');
+
+    let swReg = null;
+    let publicVapidKey = '';
+
+    function log(msg) {
+      logEl.textContent = `${new Date().toLocaleTimeString()} ${msg}\n` + logEl.textContent;
+    }
+
+    function setStatus(state, text) {
+      dot.className = 'dot ' + state;
+      statusText.textContent = text;
+    }
+
+    function urlBase64ToUint8Array(base64) {
+      const pad = '='.repeat((4 - base64.length % 4) % 4);
+      const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+      return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    }
+
+    async function init() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        setStatus('err', 'Dieser Browser unterstützt Web Push nicht.');
+        return;
+      }
+
+      // Load VAPID public key from API
+      try {
+        const cfg = await fetch('/api/push/config').then(r => r.json());
+        if (!cfg.configured) {
+          setStatus('err', 'VAPID-Keys nicht konfiguriert (Server-Setup fehlt).');
+          return;
+        }
+        publicVapidKey = cfg.publicVapidKey;
+        log('VAPID public key geladen.');
+      } catch (e) {
+        setStatus('err', 'API nicht erreichbar: ' + e.message);
+        return;
+      }
+
+      // Register service worker
+      try {
+        swReg = await navigator.serviceWorker.register('/push-test-sw.js');
+        await navigator.serviceWorker.ready;
+        log('Service Worker registriert.');
+      } catch (e) {
+        setStatus('err', 'Service Worker Fehler: ' + e.message);
+        return;
+      }
+
+      // Check existing subscription
+      const existing = await swReg.pushManager.getSubscription();
+      if (existing) {
+        setStatus('ok', 'Bereits abonniert. Jetzt Test-Notification senden.');
+        notifyBtn.disabled = false;
+        log('Vorhandenes Abonnement gefunden.');
+        return;
+      }
+
+      if (Notification.permission === 'granted') {
+        setStatus('warn', 'Berechtigung vorhanden, aber noch nicht abonniert.');
+      } else {
+        setStatus('warn', 'Noch nicht abonniert. "Push abonnieren" klicken.');
+      }
+      subscribeBtn.disabled = false;
+    }
+
+    subscribeBtn.addEventListener('click', async () => {
+      subscribeBtn.disabled = true;
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          setStatus('err', 'Berechtigung verweigert.');
+          subscribeBtn.disabled = false;
+          return;
+        }
+
+        const sub = await swReg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicVapidKey),
+        });
+
+        const res = await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+
+        setStatus('ok', 'Abonniert! Jetzt Test-Notification senden.');
+        notifyBtn.disabled = false;
+        log('Erfolgreich abonniert und gespeichert.');
+      } catch (e) {
+        setStatus('err', 'Fehler: ' + e.message);
+        subscribeBtn.disabled = false;
+        log('Fehler beim Abonnieren: ' + e.message);
+      }
+    });
+
+    notifyBtn.addEventListener('click', async () => {
+      notifyBtn.disabled = true;
+      const title = document.getElementById('title-input').value || 'Kairos Test';
+      const body = document.getElementById('body-input').value || 'Test';
+      try {
+        const res = await fetch('/api/push/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, body }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        setStatus('ok', `Gesendet: ${data.sent} Notification(s).`);
+        log(`Ergebnis: ${JSON.stringify(data)}`);
+      } catch (e) {
+        setStatus('err', 'Fehler: ' + e.message);
+        log('Fehler beim Senden: ' + e.message);
+      }
+      notifyBtn.disabled = false;
+    });
+
+    init();
+  </script>
+</body>
+</html>
